@@ -9,7 +9,7 @@ repositories {
 }
 
 ext {
-    mindustryVersion = 'v140.2'
+    mindustryVersion = 'v142'
 }
 
 dependencies {
@@ -17,8 +17,7 @@ dependencies {
     compileOnly "com.github.Anuken.Mindustry:core:$mindustryVersion"
 
     implementation "com.google.code.gson:gson:2.10"
-
-    implementation "com.github.xzxADIxzx.useful-stuffs:server-bundle:main-SNAPSHOT"
+    implementation "com.github.xzxADIxzx.useful-stuffs:bundle:d1e3cc1a5a"
 }
 
 jar {

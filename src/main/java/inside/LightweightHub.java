@@ -19,10 +19,7 @@ import static mindustry.net.Administration.ActionType.*;
 
 public class LightweightHub extends Plugin {
 
-    public static final float
-            delaySeconds = 3f,
-            refreshDuration = 6f,
-            teleportUpdateInterval = 3f;
+    public static final float updateInterval = 3f;
 
     public static final Interval interval = new Interval();
     public static final AtomicInteger counter = new AtomicInteger();
@@ -31,12 +28,16 @@ public class LightweightHub extends Plugin {
     public static Config config;
 
     public static void showOnlineLabel(Player player, Server server, Host host) {
-        Call.label(player.con, host.name, refreshDuration, server.titleX * tilesize, server.titleY * tilesize);
-        Call.label(player.con, Bundle.format("server.offline", player, host.players, host.mapname), refreshDuration, server.labelX * tilesize, server.labelY * tilesize);
+        Call.label(player.con, host.name, updateInterval, server.titleX * tilesize, server.titleY * tilesize);
+        Call.label(player.con, Bundle.format(!server.isNear(player.tileX(), player.tileY()) ?
+                "server.online" :
+                "server.online.full",
+                player, host.players, host.mapname, host.wave, server.ip + ":" + server.port
+        ), updateInterval, server.labelX * tilesize, server.labelY * tilesize);
     }
 
     public static void showOfflineLabel(Player player, Server server) {
-        Call.label(player.con, Bundle.format("server.online", player), refreshDuration, server.labelX * tilesize, server.labelY * tilesize);
+        Call.label(player.con, Bundle.format("server.offline", player), updateInterval, server.labelX * tilesize, server.labelY * tilesize);
     }
 
     public static void teleport(Player player) {
@@ -44,9 +45,9 @@ public class LightweightHub extends Plugin {
     }
 
     public static void teleport(Player player, int x, int y) {
-        config.servers.forEach(data -> {
-            if (data.inDiapason(x, y))
-                data.pingHost(host -> Call.connect(player.con, data.ip, data.port), e -> {});
+        config.servers.forEach(server -> {
+            if (server.isInside(x, y))
+                server.pingHost(host -> Call.connect(player.con, server.ip, server.port), e -> {});
         });
     }
 
@@ -63,35 +64,35 @@ public class LightweightHub extends Plugin {
 
         Bundle.load(LightweightHub.class);
 
-        content.units().each(type -> type.payloadCapacity = 0f);
-
         Events.run(Trigger.update, () -> {
-            if (interval.get(teleportUpdateInterval))
+            if (interval.get(updateInterval))
                 Groups.player.each(LightweightHub::teleport);
         });
 
         Events.on(TapEvent.class, event -> teleport(event.player, event.tile.x, event.tile.y));
 
-        Events.on(PlayerJoin.class, event -> config.servers.forEach(server -> server.pingHost(host -> showOnlineLabel(event.player, server, host), e -> showOfflineLabel(event.player, server))));
+        Events.on(PlayerJoin.class, event -> config.servers.forEach(server -> server.pingHost(host -> showOnlineLabel(event.player, server, host), error -> showOfflineLabel(event.player, server))));
 
         Events.on(WorldLoadEvent.class, event -> {
             state.rules.blockDamageMultiplier = 0f;
             state.rules.unitDamageMultiplier = 0f;
 
-            Structs.each(team -> team.rules().cheat = true, Team.baseTeams);
+            content.units().each(type -> type.payloadCapacity = 0f);
+
+            Structs.each(team -> team.rules().cheat = true, Team.all);
         });
 
         Timer.schedule(() -> {
             var tasks = config.servers.stream().map(server -> CompletableFuture.runAsync(() -> server.pingHost(host -> {
                 counter.addAndGet(host.players);
                 Groups.player.each(player -> showOnlineLabel(player, server, host));
-            }, e -> Groups.player.each(player -> showOfflineLabel(player, server))))).toArray(CompletableFuture<?>[]::new);
+            }, error -> Groups.player.each(player -> showOfflineLabel(player, server))))).toArray(CompletableFuture<?>[]::new);
 
             CompletableFuture.allOf(tasks).thenRun(() -> {
                 counter.addAndGet(Groups.player.size());
                 Core.settings.put("totalPlayers", counter.getAndSet(0));
             }).join();
-        }, delaySeconds, refreshDuration);
+        }, 0f, updateInterval);
 
         netServer.admins.addActionFilter(action -> action.type != placeBlock && action.type != breakBlock && (action.type != configure || action.config instanceof Boolean));
     }
