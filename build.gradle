@@ -15,9 +15,14 @@ ext {
 
 dependencies {
     compileOnly "com.github.anuken.arc:arc-core:$mindustryVersion"
-    compileOnly "com.github.anuken.mindustryjitpack:core:$mindustryVersion"
+    
+    compileOnly("com.github.anuken.mindustryjitpack:core:$mindustryVersion") {
+        exclude(group = "com.github.Anuken.Arc")
+    }
 
-    compileOnly "com.github.anuken.mindustryjitpack:server:$mindustryVersion"
+    compileOnly("com.github.anuken.mindustryjitpack:server:$mindustryVersion") {
+        exclude(group = "com.github.Anuken.Arc")
+    }
 
     implementation "com.google.code.gson:gson:2.10"
     implementation "com.github.xzxADIxzx.useful-stuffs:bundle:$usefulHash"
