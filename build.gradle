@@ -10,6 +10,7 @@ repositories {
 
 ext {
     mindustryVersion = 'v142'
+    usefulHash = '2f1d9eb899'
 }
 
 dependencies {
@@ -17,7 +18,7 @@ dependencies {
     compileOnly "com.github.Anuken.Mindustry:core:$mindustryVersion"
 
     implementation "com.google.code.gson:gson:2.10"
-    implementation "com.github.xzxADIxzx.useful-stuffs:bundle:d1e3cc1a5a"
+    implementation "com.github.xzxADIxzx.useful-stuffs:bundle:$usefulHash"
 }
 
 jar {
