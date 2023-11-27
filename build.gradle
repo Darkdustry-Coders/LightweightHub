@@ -5,11 +5,12 @@ compileTestJava.options.encoding = 'UTF-8'
 
 repositories {
     mavenCentral()
+    maven { url "https://raw.githubusercontent.com/Zelaux/MindustryRepo/master/repository" }
     maven { url 'https://www.jitpack.io' }
 }
 
 ext {
-    mindustryVersion = 'v142'
+    mindustryVersion = 'v145'
     usefulHash = '2f1d9eb899'
 }
 
