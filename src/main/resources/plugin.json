@@ -4,4 +4,5 @@
   "main": "inside.LightweightHub",
   "description": "A lightweight hub plugin for servers.",
   "version": "1.0"
+  "minGameVersion": 142
 }
