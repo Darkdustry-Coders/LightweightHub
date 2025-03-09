@@ -94,7 +94,7 @@ public class LightweightHub extends Plugin {
             }).join();
         }, 0f, updateInterval);
 
-        netServer.admins.addActionFilter(action -> action.type != placeBlock && action.type != breakBlock && (action.type != configure || action.config instanceof Boolean));
+        netServer.admins.addActionFilter(action -> action.type != placeBlock && action.type != breakBlock && (action.type != configure || action.config instanceof Boolean) && action.type != rotate);
     }
 
     @Override
