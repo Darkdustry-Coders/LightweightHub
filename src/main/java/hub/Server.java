@@ -4,6 +4,7 @@ import arc.math.Mathf;
 import arc.util.Nullable;
 import buj.tl.Tl;
 import mindurka.coreplugin.messages.ServerInfo;
+import mindurka.util.K;
 import mindustry.Vars;
 import mindustry.gen.Player;
 import mindustry.gen.WorldLabel;
@@ -17,9 +18,12 @@ public class Server {
     public float serverSize;
     public boolean currentlyFetching = false;
 
-    private EmbokrifiedWorldLabel nameLabel = null;
-    private EmbokrifiedWorldLabel offlineLabel = null;
-    private EmbokrifiedWorldLabel statusLabel = null;
+    private @Nullable EmbokrifiedWorldLabel nameLabel = null;
+    private final WeakHashMap<Player, Integer> namePlayers = new WeakHashMap<>();
+    private @Nullable EmbokrifiedWorldLabel offlineLabel = null;
+    private final WeakHashMap<Player, K> offlinePlayers = new WeakHashMap<>();
+    private @Nullable EmbokrifiedWorldLabel statusLabel = null;
+    private final WeakHashMap<Player, Integer> statusPlayers = new WeakHashMap<>();
 
     public Server(String name, float x, float y, float size) {
         this.serverName = name;
@@ -58,6 +62,13 @@ public class Server {
                 offlineLabel.flags = WorldLabel.flagBackground + WorldLabel.flagOutline;
                 offlineLabel.add();
             }
+
+            offlinePlayers.clear();
+            offlineLabel.syncIf = player -> {
+                var sync = offlinePlayers.containsKey(player);
+                if (!sync) offlinePlayers.put(player, K.INSTANCE);
+                return sync;
+            };
         }
         else {
             if (offlineLabel != null) {
@@ -74,6 +85,16 @@ public class Server {
                 nameLabel.add();
             }
             nameLabel.text = name;
+
+            namePlayers.clear();
+            nameLabel.syncIf = player -> {
+                var hash1 = namePlayers.getOrDefault(player, 0);
+                var hash2 = server.hashCode();
+                var ne = hash1 != hash2;
+
+                if (ne) namePlayers.put(player, hash1);
+                return ne;
+            };
 
             if (statusLabel == null) {
                 statusLabel = EmbokrifiedWorldLabel.create();
@@ -103,6 +124,16 @@ public class Server {
                     .put("address", server.getIp())
                     .done(text.toString());
             };
+
+            statusPlayers.clear();
+            statusLabel.syncIf = player -> {
+                var hash1 = statusPlayers.getOrDefault(player, 0);
+                var hash2 = server.hashCode();
+                var ne = hash1 != hash2;
+
+                if (ne) statusPlayers.put(player, hash1);
+                return ne;
+            };
         }
     }
 
@@ -119,6 +150,9 @@ public class Server {
             statusLabel.hide();
             statusLabel = null;
         }
+        namePlayers.clear();
+        offlinePlayers.clear();
+        statusPlayers.clear();
     }
 
     public void moved() {
@@ -134,6 +168,9 @@ public class Server {
             statusLabel.x = serverX * Vars.tilesize;
             statusLabel.y = serverY * Vars.tilesize - serverSize * Vars.tilesize / 2 - Vars.tilesize;
         }
+        namePlayers.clear();
+        offlinePlayers.clear();
+        statusPlayers.clear();
     }
 
     private String host = null;

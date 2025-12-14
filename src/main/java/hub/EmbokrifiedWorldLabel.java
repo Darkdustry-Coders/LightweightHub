@@ -1,5 +1,6 @@
 package hub;
 
+import arc.func.Boolf;
 import arc.func.Func;
 import arc.util.io.Writes;
 import mindustry.gen.Player;
@@ -9,6 +10,7 @@ import mindustry.io.TypeIO;
 public class EmbokrifiedWorldLabel extends WorldLabel {
     private Player borkedFor = null;
     public Func<Player, String> mainText = null;
+    public Boolf<Player> syncIf = null;
 
     public static EmbokrifiedWorldLabel create() {
         return new EmbokrifiedWorldLabel();
@@ -22,6 +24,8 @@ public class EmbokrifiedWorldLabel extends WorldLabel {
     @Override
     public boolean isSyncHidden(Player player) {
         borkedFor = player;
+        if (super.isSyncHidden(player)) return true;
+        if (syncIf != null && !syncIf.get(player)) return false;
         return super.isSyncHidden(player);
     }
 
