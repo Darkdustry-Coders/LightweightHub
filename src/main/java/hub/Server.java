@@ -55,11 +55,11 @@ public class Server {
 
             if (offlineLabel == null) {
                 offlineLabel = EmbokrifiedWorldLabel.create();
-                offlineLabel.x = serverX * Vars.tilesize;
-                offlineLabel.y = serverY * Vars.tilesize;
+                offlineLabel.x = (serverX + serverSize / 2f - 0.5f) * Vars.tilesize;
+                offlineLabel.y = (serverY + serverSize / 2f - 0.5f) * Vars.tilesize;
                 offlineLabel.text = "[scarlet]Whoops! You shouldn't be able to see this text!";
                 offlineLabel.mainText = player -> Tl.fmt(player).done("{hub.server.offline}");
-                offlineLabel.flags = WorldLabel.flagBackground + WorldLabel.flagOutline;
+                offlineLabel.flags = WorldLabel.flagBackground + WorldLabel.flagOutline + WorldLabel.flagAutoscale;
                 offlineLabel.add();
             }
 
@@ -78,9 +78,9 @@ public class Server {
 
             if (nameLabel == null) {
                 nameLabel = EmbokrifiedWorldLabel.create();
-                nameLabel.x = serverX * Vars.tilesize;
-                nameLabel.y = serverY * Vars.tilesize + serverSize * Vars.tilesize / 2 + Vars.tilesize;
-                nameLabel.flags = WorldLabel.flagBackground + WorldLabel.flagOutline;
+                nameLabel.x = (serverX + serverSize / 2f - 0.5f) * Vars.tilesize;
+                nameLabel.y = (serverY + serverSize / 2f - 0.5f) * Vars.tilesize + serverSize * Vars.tilesize / 2 + Vars.tilesize;
+                nameLabel.flags = WorldLabel.flagBackground + WorldLabel.flagOutline + WorldLabel.flagAutoscale;
                 nameLabel.fontSize *= 1.5f;
                 nameLabel.add();
             }
@@ -98,10 +98,10 @@ public class Server {
 
             if (statusLabel == null) {
                 statusLabel = EmbokrifiedWorldLabel.create();
-                statusLabel.x = serverX * Vars.tilesize;
-                statusLabel.y = serverY * Vars.tilesize - serverSize * Vars.tilesize / 2 - Vars.tilesize;
+                statusLabel.x = (serverX + serverSize / 2f - 0.5f) * Vars.tilesize;
+                statusLabel.y = (serverY + serverSize / 2f) * Vars.tilesize - serverSize * Vars.tilesize / 2 - Vars.tilesize;
                 statusLabel.text = "[scarlet]Whoops! You shouldn't be able to see this text!";
-                statusLabel.flags = WorldLabel.flagBackground + WorldLabel.flagOutline;
+                statusLabel.flags = WorldLabel.flagBackground + WorldLabel.flagOutline + WorldLabel.flagAutoscale + WorldLabel.flagAlignLeft;
                 statusLabel.add();
             }
             statusLabel.mainText = player -> {
@@ -157,16 +157,16 @@ public class Server {
 
     public void moved() {
         if (nameLabel != null) {
-            nameLabel.x = serverX * Vars.tilesize;
-            nameLabel.y = serverY * Vars.tilesize + serverSize * Vars.tilesize / 2 + Vars.tilesize;
+            nameLabel.x = (serverX + serverSize / 2f - 0.5f) * Vars.tilesize;
+            nameLabel.y = (serverY + serverSize / 2f - 0.5f) * Vars.tilesize + serverSize * Vars.tilesize / 2 + Vars.tilesize;
         }
         if (offlineLabel != null) {
-            offlineLabel.x = serverX * Vars.tilesize;
-            offlineLabel.y = serverY * Vars.tilesize;
+            offlineLabel.x = (serverX + serverSize / 2f - 0.5f) * Vars.tilesize;
+            offlineLabel.y = (serverY + serverSize / 2f - 0.5f) * Vars.tilesize;
         }
         if (statusLabel != null) {
-            statusLabel.x = serverX * Vars.tilesize;
-            statusLabel.y = serverY * Vars.tilesize - serverSize * Vars.tilesize / 2 - Vars.tilesize;
+            statusLabel.x = (serverX + serverSize / 2f - 0.5f) * Vars.tilesize;
+            statusLabel.y = (serverY + serverSize / 2f - 0.5f) * Vars.tilesize - serverSize * Vars.tilesize / 2 - Vars.tilesize;
         }
         namePlayers.clear();
         offlinePlayers.clear();
@@ -185,16 +185,12 @@ public class Server {
     }
 
     public boolean isInside(int x, int y) {
-        return x <= serverX + (serverSize / 2 + ((serverSize + 1) % 2))
-            && x >= serverX - serverSize / 2
-            && y <= serverY + (serverSize / 2 + ((serverSize + 1) % 2))
-            && y >= serverY - serverSize / 2;
+        return x >= serverX && x <= serverX + serverSize &&
+               y >= serverY && y <= serverY + serverSize;
     }
 
     public boolean isNear(int x, int y) {
-        return x <= serverX + (serverSize / 2 + ((serverSize + 1) % 2) + 3)
-            && x >= serverX - (serverSize / 2 + 3)
-            && y <= serverY + (serverSize / 2 + ((serverSize + 1) % 2) + 3)
-            && y >= serverY - (serverSize / 2 + 3);
+        return x >= serverX - 3 && x <= serverX + serverSize + 3 &&
+               y >= serverY - 3 && y <= serverY + serverSize + 3;
     }
 }

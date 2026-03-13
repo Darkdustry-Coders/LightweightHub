@@ -1,11 +1,10 @@
 package hub;
 
-import arc.math.Mathf;
-import arc.util.*;
+import arc.util.Log;
 import arc.util.Timer;
-import buj.tl.Tl;
 import mindurka.annotations.ConsoleCommand;
 import mindurka.api.Events;
+import mindurka.api.SpecialSettingsLoad;
 import mindurka.coreplugin.RabbitMQ;
 import mindurka.coreplugin.messages.ServerInfo;
 import mindurka.coreplugin.messages.ServersRefresh;
@@ -17,14 +16,8 @@ import mindustry.gen.Groups;
 import mindustry.gen.Player;
 import mindustry.mod.Plugin;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-
 import static mindustry.net.Administration.ActionType.*;
 import mindurka.api.Gamemode;
-
-import javax.swing.*;
 
 public class LightweightHub extends Plugin {
     public static final float expireInterval = 3f;
@@ -49,21 +42,9 @@ public class LightweightHub extends Plugin {
                         that_thing -> {
                             Call.connect(player.con, host, port);
                         },
-                        why -> {
-                            // Stolen from stack overflow. (https://stackoverflow.com/questions/1149703/how-can-i-convert-a-stack-trace-to-a-string#1149712)
-                            var sw = new StringWriter();
-                            var pw = new PrintWriter(sw);
-                            why.printStackTrace(pw);
-                            Tl.send(player).put("host", server.getHost()).put("error", sw.toString());
-                        }
+                        why -> {}
                     );
-                } catch (Exception why) {
-                    // Stolen from stack overflow. (https://stackoverflow.com/questions/1149703/how-can-i-convert-a-stack-trace-to-a-string#1149712)
-                    var sw = new StringWriter();
-                    var pw = new PrintWriter(sw);
-                    why.printStackTrace(pw);
-                    Tl.send(player).put("host", server.getHost()).put("error", sw.toString());
-                }
+                } catch (Exception ignored) {}
                 break;
             }
     }
@@ -75,14 +56,10 @@ public class LightweightHub extends Plugin {
         Gamemode.init(getClass());
         Gamemode.unlockSpecialBlocks = false;
 
-        try {
-            config = Config.load(Vars.dataDirectory.child("hub.conf"));
-        } catch (IOException | ArcRuntimeException ignored) {
-            config = Config.def();
-        } catch (Config.ConfigException e) {
-            Log.err("Failed to load config", e);
-            config = Config.def();
-        }
+        Events.on(SpecialSettingsLoad.class, event -> {
+            if (event.getCurrentMap()) config = new Config(event.getRc());
+            else new Config(event.getRc());
+        });
 
         Events.on(WorldLoadEvent.class, event -> {
             Vars.state.rules.blockDamageMultiplier = 0f;
@@ -90,8 +67,6 @@ public class LightweightHub extends Plugin {
             Vars.state.rules.bannedBlocks.addAll(Vars.content.blocks());
 
             Vars.content.units().each(type -> type.payloadCapacity = 0f);
-
-            Structs.each(team -> team.rules().cheat = true, Team.all);
         });
 
         Events.on(ServerInfo.class, event -> {
@@ -121,7 +96,7 @@ public class LightweightHub extends Plugin {
                 for (var team : Team.all) {
                     var core = team.core();
                     if (core == null) continue;
-                    core.items().remove(item, core.items().get(item) / 2);
+                    core.items.remove(item, core.items.get(item) / 2);
                 }
             }
         }, 60f, 60f);
@@ -138,21 +113,11 @@ public class LightweightHub extends Plugin {
             server = new Server(name, x, y, size);
             server.update(null);
             instance.config.servers.add(server);
-            try {
-                instance.config.write(Vars.dataDirectory.child("hub.conf"));
-            } catch (IOException e) {
-                Log.err("failed to save config", e);
-            }
         } else {
             server.serverX = x;
             server.serverY = y;
             server.serverSize = size;
             server.moved();
-            try {
-                instance.config.write(Vars.dataDirectory.child("hub.conf"));
-            } catch (IOException e) {
-                Log.err("failed to save config", e);
-            }
         }
         Events.fire(new ServersRefresh());
     }
