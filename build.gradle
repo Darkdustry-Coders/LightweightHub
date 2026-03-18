@@ -30,6 +30,7 @@ dependencies {
     compileOnly 'mindurka.coreplugin:annotations:latest-SNAPSHOT'
 
     compileOnly libs.kotlin.reflect
+    compileOnly libs.kotlin.coro
     compileOnly 'mindurka.coreplugin:buildExtras:latest-SNAPSHOT'
     ksp 'mindurka.coreplugin:processor:latest-SNAPSHOT'
 }

@@ -1,23 +1,30 @@
 package hub;
 
+import arc.struct.Seq;
 import arc.util.Log;
-import arc.util.Timer;
+import kotlin.coroutines.Continuation;
+import kotlin.coroutines.CoroutineContext;
 import mindurka.annotations.ConsoleCommand;
 import mindurka.api.Events;
+import mindurka.api.Lifetime;
 import mindurka.api.SpecialSettingsLoad;
+import mindurka.api.Timer;
 import mindurka.coreplugin.RabbitMQ;
 import mindurka.coreplugin.messages.ServerInfo;
 import mindurka.coreplugin.messages.ServersRefresh;
+import mindurka.util.Async;
+import mindurka.util.AsyncCall;
+import mindurka.util.ClassLoaders;
 import mindustry.Vars;
 import mindustry.game.EventType.*;
 import mindustry.game.Team;
-import mindustry.gen.Call;
 import mindustry.gen.Groups;
 import mindustry.gen.Player;
 import mindustry.mod.Plugin;
 
 import static mindustry.net.Administration.ActionType.*;
 import mindurka.api.Gamemode;
+import org.jetbrains.annotations.NotNull;
 
 public class LightweightHub extends Plugin {
     public static final float expireInterval = 3f;
@@ -32,28 +39,40 @@ public class LightweightHub extends Plugin {
     }
 
     private void teleport(Player player, int x, int y) {
+        final var tasks = new Seq<Runnable>();
         for (var server : config.servers)
             if (server.isInside(x, y)) {
-                try {
-                    var i = server.getHost().lastIndexOf(":");
-                    var host = server.getHost().substring(0, i);
-                    var port = Integer.parseInt(server.getHost().substring(i + 1));
-                    Vars.net.pingHost(host, port,
-                        that_thing -> {
-                            Call.connect(player.con, host, port);
-                        },
-                        why -> {}
-                    );
-                } catch (Exception ignored) {}
-                break;
+                if (server.getHost() == null) continue;
+
+                var i = server.getHost().lastIndexOf(":");
+                var host = server.getHost().substring(0, i);
+                var port = Integer.parseInt(server.getHost().substring(i + 1));
+
+                tasks.add(() -> AsyncCall.connect(player, host, port, new Continuation<>() {
+                    @NotNull
+                    @Override
+                    public CoroutineContext getContext() {
+                        return Async.mainScope.getCoroutineContext();
+                    }
+
+                    @Override
+                    public void resumeWith(@NotNull Object o) {
+                        if (!((Boolean) o) && !tasks.isEmpty())
+                            tasks.pop().run();
+                    }
+                }));
             }
+        if (!tasks.isEmpty()) {
+            tasks.reverse();
+            tasks.pop().run();
+        }
     }
 
     @Override
     public void init() {
         instance = this;
 
-        Gamemode.init(getClass());
+        Gamemode.init(ClassLoaders.prefixed(getClass().getClassLoader(), "hub"));
         Gamemode.unlockSpecialBlocks = false;
 
         Events.on(SpecialSettingsLoad.class, event -> {
@@ -67,9 +86,27 @@ public class LightweightHub extends Plugin {
             Vars.state.rules.bannedBlocks.addAll(Vars.content.blocks());
 
             Vars.content.units().each(type -> type.payloadCapacity = 0f);
+
+            Timer.interval(expireInterval, 1f, Lifetime.Round, () -> {
+                final var currentConfig = config;
+
+                for (var server : config.servers) {
+                    server.currentlyFetching = true;
+                }
+
+                Events.fire(new ServersRefresh());
+
+                Timer.timer(expireLeeway, () -> {
+                    if (config != currentConfig) return;
+                    for (var server : currentConfig.servers)
+                        if (server.currentlyFetching)
+                            server.update(null);
+                });
+            });
         });
 
         Events.on(ServerInfo.class, event -> {
+            if (config == null) return;
             var server = RabbitMQ.sentBy(event);
             config.servers.each(x -> x.serverName.equals(server), x -> x.update(event));
         });
@@ -77,19 +114,6 @@ public class LightweightHub extends Plugin {
         Vars.netServer.admins.addActionFilter(action -> action.type != placeBlock &&
                 action.type != breakBlock && (action.type != configure || action.config instanceof Boolean)
                 && action.type != rotate);
-
-        Timer.schedule(() -> {
-            var refresh = new ServersRefresh();
-            for (var server : config.servers) {
-                server.currentlyFetching = true;
-                RabbitMQ.sendTo(refresh, server.serverName, "#");
-            }
-            Timer.schedule(() -> {
-                for (var server : config.servers)
-                    if (server.currentlyFetching)
-                        server.update(null);
-            }, expireLeeway);
-        }, 1f, expireInterval - expireLeeway);
 
         Timer.schedule(() -> {
             for (var item : Vars.content.items()) {
@@ -108,6 +132,11 @@ public class LightweightHub extends Plugin {
     /** Add or modify a server portal. */
     @ConsoleCommand("server-set")
     static void setServer(String name, float x, float y, float size) {
+        if (instance.config == null) {
+            Log.info("Server's not yet loaded");
+            return;
+        }
+
         var server = instance.config.servers.find(it -> it.serverName.equals(name));
         if (server == null) {
             server = new Server(name, x, y, size);
@@ -125,6 +154,11 @@ public class LightweightHub extends Plugin {
     /** Remove a server portal. */
     @ConsoleCommand("server-unset")
     static void removeServer(String name) {
+        if (instance.config == null) {
+            Log.info("Server's not yet loaded");
+            return;
+        }
+
         var server = instance.config.servers.find(it -> it.serverName.equals(name));
         if (server == null) return;
         instance.config.servers.remove(server);
@@ -134,6 +168,11 @@ public class LightweightHub extends Plugin {
     /** List all servers. */
     @ConsoleCommand("servers")
     static void servers() {
+        if (instance.config == null) {
+            Log.info("Server's not yet loaded");
+            return;
+        }
+
         for (var server : instance.config.servers) {
             Log.info("Server " + server.serverName + "(" + server.serverX + ":"  + server.serverY + ", size=" + server.serverSize + ")");
             if (server.getHost() == null) {
