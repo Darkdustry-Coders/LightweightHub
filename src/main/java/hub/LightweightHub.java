@@ -74,6 +74,11 @@ public class LightweightHub extends Plugin {
 
         Gamemode.init(ClassLoaders.prefixed(getClass().getClassLoader(), "hub"));
         Gamemode.unlockSpecialBlocks = false;
+        Gamemode.restoreTeams = false;
+        Gamemode.enableSpectate = false;
+        Gamemode.enableSurrender = false;
+        Gamemode.enableRtv = false;
+        Gamemode.enableVnw = false;
 
         Events.on(SpecialSettingsLoad.class, event -> {
             if (event.getCurrentMap()) config = new Config(event.getRc());
