@@ -27,8 +27,8 @@ import mindurka.api.Gamemode;
 import org.jetbrains.annotations.NotNull;
 
 public class LightweightHub extends Plugin {
-    public static final float expireInterval = 3f;
-    public static final float expireLeeway = 0.5f;
+    public static final float expireInterval = 30f;
+    public static final float expireLeeway = 5f;
 
     private Config config;
 
