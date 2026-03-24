@@ -16,13 +16,9 @@ def workspacePath = gradle.ext.workspacePath
 repositories {
     mavenCentral()
     maven { url "https://raw.githubusercontent.com/Zelaux/MindustryRepo/master/repository" }
-    maven { url 'https://www.jitpack.io' }
-    maven { url "$workspacePath/.cache/maven" }
 }
 
-// configurations.configureEach {
-//     resolutionStrategy.cacheDynamicVersionsFor 1, 'seconds'
-// }
+apply from: "$workspacePath/.cache/tools/buildscript/shared.repos.gradle"
 
 dependencies {
     compileOnly libs.bundles.mindustry
