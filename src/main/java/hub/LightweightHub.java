@@ -1,7 +1,13 @@
 package hub;
 
+import arc.Core;
+import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Log;
+import arc.util.Nullable;
+import arc.util.Time;
+import buj.tl.Tl;
+import kotlin.Unit;
 import kotlin.coroutines.Continuation;
 import kotlin.coroutines.CoroutineContext;
 import mindurka.annotations.ConsoleCommand;
@@ -9,15 +15,19 @@ import mindurka.api.Events;
 import mindurka.api.Lifetime;
 import mindurka.api.SpecialSettingsLoad;
 import mindurka.api.Timer;
+import mindurka.coreplugin.PlayerDataKt;
 import mindurka.coreplugin.RabbitMQ;
+import mindurka.coreplugin.messages.BringPlayerBack;
 import mindurka.coreplugin.messages.ServerInfo;
 import mindurka.coreplugin.messages.ServersRefresh;
 import mindurka.util.Async;
 import mindurka.util.AsyncCall;
 import mindurka.util.ClassLoaders;
+import mindurka.util.StringKt;
 import mindustry.Vars;
 import mindustry.game.EventType.*;
 import mindustry.game.Team;
+import mindustry.gen.Call;
 import mindustry.gen.Groups;
 import mindustry.gen.Player;
 import mindustry.mod.Plugin;
@@ -34,6 +44,30 @@ public class LightweightHub extends Plugin {
 
     public static LightweightHub instance;
 
+    private enum SendReason {
+        BringBack,
+    }
+    private static class SendToServerData {
+        public long until = Time.nanos() + 10000000000L;
+        public final String profileId;
+        public String serverName;
+        public SendReason reason;
+
+        public SendToServerData(String profileId, String serverName, SendReason reason) {
+            this.profileId = profileId;
+            this.serverName = serverName;
+            this.reason = reason;
+        }
+    }
+    private final Seq<SendToServerData> bringBack = new Seq<>();
+    private SendToServerData bringBackData(String profileId) {
+        for (var data : bringBack) if (data.profileId.equals(profileId)) return data;
+        return null;
+    }
+    private SendToServerData bringBackData(Player player) {
+        return bringBackData(PlayerDataKt.getSessionData(player).getProfileId());
+    }
+
     private void teleport(Player player) {
         teleport(player, player.tileX(), player.tileY());
     }
@@ -48,7 +82,11 @@ public class LightweightHub extends Plugin {
                 var host = server.getHost().substring(0, i);
                 var port = Integer.parseInt(server.getHost().substring(i + 1));
 
-                tasks.add(() -> AsyncCall.connect(player, host, port, new Continuation<>() {
+                i = server.getLocalHost().lastIndexOf(":");
+                var localHost = server.getLocalHost().substring(0, i);
+                var localPort = Integer.parseInt(server.getLocalHost().substring(i + 1));
+
+                tasks.add(() -> AsyncCall.connect(player, host, port, localHost, localPort, new Continuation<>() {
                     @NotNull
                     @Override
                     public CoroutineContext getContext() {
@@ -68,6 +106,17 @@ public class LightweightHub extends Plugin {
         }
     }
 
+    private void updatePlayerCount() {
+        if (config == null) return;
+        int playerCount = 0;
+        for (int i = 0; i < config.servers.size; i++) {
+            Server server = config.servers.items[i];
+            playerCount += Math.max(server.playerCount(), 0);
+        }
+        playerCount += Groups.player.size();
+        Core.settings.put("totalPlayers", playerCount);
+    }
+
     @Override
     public void init() {
         instance = this;
@@ -79,6 +128,9 @@ public class LightweightHub extends Plugin {
         Gamemode.enableSurrender = false;
         Gamemode.enableRtv = false;
         Gamemode.enableVnw = false;
+        Gamemode.hasStats = false;
+        Gamemode.adminCommands = false;
+        Gamemode.sendHub = false;
 
         Events.on(SpecialSettingsLoad.class, event -> {
             if (event.getCurrentMap()) config = new Config(event.getRc());
@@ -92,7 +144,7 @@ public class LightweightHub extends Plugin {
 
             Vars.content.units().each(type -> type.payloadCapacity = 0f);
 
-            Timer.interval(expireInterval, 1f, Lifetime.Round, () -> {
+            Timer.interval(expireInterval, 2f, Lifetime.Round, () -> {
                 final var currentConfig = config;
 
                 for (var server : config.servers) {
@@ -114,6 +166,66 @@ public class LightweightHub extends Plugin {
             if (config == null) return;
             var server = RabbitMQ.sentBy(event);
             config.servers.each(x -> x.serverName.equals(server), x -> x.update(event));
+            updatePlayerCount();
+        });
+
+        Events.on(PlayerJoin.class, x -> updatePlayerCount());
+        Events.on(PlayerLeave.class, x -> updatePlayerCount());
+
+        Events.on(PlayerJoin.class, x -> {
+            SendToServerData data = bringBackData(x.player);
+            if (data == null) return;
+            if (data.until < Time.nanos()) {
+                bringBack.remove(data);
+                return;
+            }
+            switch (data.reason) {
+                case BringBack:
+                    Tl.send(x.player).done("{hub.bring-back}");
+                    break;
+            }
+        });
+        Events.on(PlayerLeave.class, x -> {
+            SendToServerData data = bringBackData(x.player);
+            if (data == null) return;
+            bringBack.remove(data);
+        });
+        Events.on(BringPlayerBack.class, x -> {
+            String sender = RabbitMQ.sentBy(x);
+            for (String id : x.getProfileIDs()) {
+                var data = bringBackData(id);
+                if (data == null) {
+                    data = new SendToServerData(id, sender, SendReason.BringBack);
+                    bringBack.add(data);
+                } else {
+                    data.serverName = sender;
+                    data.reason = SendReason.BringBack;
+                }
+                var player = Groups.player.find(y -> PlayerDataKt.getSessionData(y).getProfileId().equals(id));
+                if (player == null) continue;
+                Tl.send(player).done("{hub.bring-back}");
+            }
+        });
+        Timer.interval(1000f, () -> {
+            long time = Time.nanos();
+            bringBack.retainAll(x ->
+                x.until < time && Groups.player.find(y -> PlayerDataKt.getSessionData(y).getProfileId().equals(x.profileId)) == null);
+        });
+        Events.on(ServerInfo.class, x -> {
+            String server = RabbitMQ.sentBy(x);
+            bringBack.retainAll(y -> {
+                if (!y.serverName.equals(server)) return true;
+                var player = Groups.player.find(z -> PlayerDataKt.getSessionData(z).getProfileId().equals(y.profileId));
+                if (player == null) {
+                    return false;
+                }
+                StringKt.splitOnceLast(x.getIp(), ":", (ip, port) -> {
+                    assert port != null;
+                    Call.connect(player.con, ip, Integer.parseInt(port));
+                    return Unit.INSTANCE;
+                });
+                return false;
+            });
         });
 
         Vars.netServer.admins.addActionFilter(action -> action.type != placeBlock &&

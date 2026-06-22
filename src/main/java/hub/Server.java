@@ -18,6 +18,14 @@ public class Server {
     public float serverSize;
     public boolean currentlyFetching = false;
 
+    private boolean active = false;
+    private int playerCount = 0;
+
+    public int playerCount() {
+        if (!active) return 0;
+        return playerCount;
+    }
+
     private @Nullable EmbokrifiedWorldLabel nameLabel = null;
     private final WeakHashMap<Player, Integer> namePlayers = new WeakHashMap<>();
     private @Nullable EmbokrifiedWorldLabel offlineLabel = null;
@@ -33,13 +41,19 @@ public class Server {
     }
 
     public void update(@Nullable ServerInfo server) {
+        active = server != null;
+        if (active) playerCount = server.getPlayers();
+
         currentlyFetching = false;
 
         if (server == null) {
             host = null;
+            localHost = null;
             name = null;
         } else {
             host = server.getIp();
+            localHost = server.getLocalIp();
+            if (localHost == null) localHost = host;
             name = server.getName();
         }
 
@@ -174,10 +188,14 @@ public class Server {
     }
 
     private String host = null;
+    private String localHost = null;
     private String name = null;
 
     public String getHost() {
         return host;
+    }
+    public String getLocalHost() {
+        return localHost;
     }
 
     public String getName() {

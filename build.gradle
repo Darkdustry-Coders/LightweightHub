@@ -14,14 +14,14 @@ compileTestJava.options.encoding = 'UTF-8'
 def workspacePath = gradle.ext.workspacePath
 
 repositories {
+    maven { url "$workspacePath/.cache/maven" }
     mavenCentral()
-    maven { url "https://raw.githubusercontent.com/Zelaux/MindustryRepo/master/repository" }
 }
 
 apply from: "$workspacePath/.cache/tools/buildscript/shared.repos.gradle"
 
 dependencies {
-    compileOnly libs.bundles.mindustry
+    compileOnly files("$workspacePath/.cache/tools/buildscript/server-release.jar")
     compileOnly 'mindurka:CorePlugin:latest-SNAPSHOT'
     compileOnly 'mindurka.coreplugin:annotations:latest-SNAPSHOT'
 

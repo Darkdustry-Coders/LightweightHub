@@ -40,6 +40,7 @@ public class EmbokrifiedWorldLabel extends WorldLabel {
         write.s(0);
         write.b(this.flags);
         write.f(this.fontSize);
+        TypeIO.writePosEntity(write, parent);
         TypeIO.writeString(write, renderText());
         write.f(this.x);
         write.f(this.y);
@@ -49,6 +50,7 @@ public class EmbokrifiedWorldLabel extends WorldLabel {
     public void writeSync(Writes write) {
         write.b(this.flags);
         write.f(this.fontSize);
+        TypeIO.writePosEntity(write, parent);
         TypeIO.writeString(write, renderText());
         write.f(this.x);
         write.f(this.y);

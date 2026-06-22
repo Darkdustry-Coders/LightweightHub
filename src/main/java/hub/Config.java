@@ -50,5 +50,5 @@ public class Config {
         }
     }
 
-    public Seq<Server> servers = new Seq<>();
+    public Seq<Server> servers = new Seq<>(Server.class);
 }

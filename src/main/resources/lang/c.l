@@ -12,3 +12,7 @@ error = [scarlet]Failed to connect to {host}
       =
       = Error: [white](please report this on [blue]/discord[] if the issue persists)[]
       = {error}
+
+[hub]
+
+bring-back = [{col.warn}]Server you were currently on is restarting. You will be sent back once it comes back online.
