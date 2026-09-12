@@ -10,6 +10,7 @@ import mindurka.api.Lifetime;
 import mindurka.api.SpecialSettingsLoad;
 import mindurka.api.Timer;
 import mindurka.coreplugin.RabbitMQ;
+import mindurka.coreplugin.SSTool;
 import mindurka.coreplugin.messages.ServerInfo;
 import mindurka.coreplugin.messages.ServersRefresh;
 import mindurka.util.Async;
@@ -25,6 +26,8 @@ import mindustry.mod.Plugin;
 import static mindustry.net.Administration.ActionType.*;
 import mindurka.api.Gamemode;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.EnumSet;
 
 public class LightweightHub extends Plugin {
     public static final float expireInterval = 30f;
@@ -79,6 +82,7 @@ public class LightweightHub extends Plugin {
         Gamemode.enableSurrender = false;
         Gamemode.enableRtv = false;
         Gamemode.enableVnw = false;
+        Gamemode.bannedTools = java.util.EnumSet.allOf(SSTool.class);
 
         Events.on(SpecialSettingsLoad.class, event -> {
             if (event.getCurrentMap()) config = new Config(event.getRc());
@@ -130,6 +134,16 @@ public class LightweightHub extends Plugin {
             }
         }, 60f, 60f);
 
+        Events.on(PlayerConnectionConfirmed.class, event -> {
+            if (config == null) return;
+            config.servers.each(server -> server.showFor(event.player));
+        });
+
+        Events.on(PlayerLeave.class, event -> {
+            if (config == null) return;
+            config.servers.each(server -> server.hideFor(event.player));
+        });
+
         Events.on(TapEvent.class, event -> teleport(event.player, event.tile.x, event.tile.y));
         Timer.schedule(() -> Groups.player.each(this::teleport), 0.25f, 0.25f);
     }
@@ -145,8 +159,9 @@ public class LightweightHub extends Plugin {
         var server = instance.config.servers.find(it -> it.serverName.equals(name));
         if (server == null) {
             server = new Server(name, x, y, size);
-            server.update(null);
             instance.config.servers.add(server);
+            Groups.player.each(p -> !p.isLocal() && p.con != null, server::showFor);
+            server.update(null);
         } else {
             server.serverX = x;
             server.serverY = y;

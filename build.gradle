@@ -21,7 +21,9 @@ repositories {
 apply from: "$workspacePath/.cache/tools/buildscript/shared.repos.gradle"
 
 dependencies {
-    compileOnly libs.bundles.mindustry
+    // libs.bundles.mindustry resolves anuken.mindustry:core, which the local build never
+    // publishes (it publishes group 'anuken') -- that coordinate only matched a stale jar.
+    compileOnly files("$workspacePath/.cache/tools/buildscript/server-release.jar")
     compileOnly 'mindurka:CorePlugin:latest-SNAPSHOT'
     compileOnly 'mindurka.coreplugin:annotations:latest-SNAPSHOT'
 
@@ -32,7 +34,7 @@ dependencies {
 }
 
 jar {
-    archiveFileName.set "${project.archivesBaseName}.jar"
+    archiveFileName.set "${project.name}.jar"
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
@@ -40,7 +42,7 @@ jar {
 }
 
 tasks.named("build") {
-    def jarPath = Paths.get("${jar.archivePath}")
+    def jarPath = jar.archiveFile.get().asFile.toPath()
     doLast {
         Files.copy(
             jarPath,
